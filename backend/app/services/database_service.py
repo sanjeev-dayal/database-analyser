@@ -1,7 +1,7 @@
 import duckdb
 from pathlib import Path
 import pandas as pd
-
+from app.services.dataset_loader_service import get_dataset_database_path
 
 def create_dataset_database(df: pd.DataFrame, dataset_id: str) -> str:
     """
@@ -9,7 +9,7 @@ def create_dataset_database(df: pd.DataFrame, dataset_id: str) -> str:
     The uploaded DataFrame is stored in a table called 'data'.
     """
 
-    db_path = Path("uploads") / dataset_id / "dataset.duckdb"
+    db_path = get_dataset_database_path(dataset_id)
 
     connection = None
 
@@ -38,7 +38,7 @@ def run_safe_query(dataset_id: str, query: str) -> list[dict]:
     We will add stronger SQL safety rules in the next task.
     """
 
-    db_path = Path("uploads") / dataset_id / "dataset.duckdb"
+    db_path = get_dataset_database_path(dataset_id)
 
     if not db_path.exists():
         raise FileNotFoundError("Dataset database does not exist.")
