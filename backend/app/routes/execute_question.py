@@ -52,6 +52,20 @@ def execute_question(
         # Run query against this dataset's DuckDB database
         rows = run_safe_query(dataset_id, safe_sql)
 
+        if rows:
+            available_columns = rows[0].keys()
+
+            if request.chart.x not in available_columns:
+                raise ValueError(
+                    f"Chart x-axis column '{request.chart.x}' was not returned by the query."
+                )
+
+            if request.chart.y not in available_columns:
+                raise ValueError(
+                    f"Chart y-axis column '{request.chart.y}' was not returned by the query."
+                )
+
+        summary = create_summary(rows, request.chart)
         summary = create_summary(rows, request.chart)
 
         return {

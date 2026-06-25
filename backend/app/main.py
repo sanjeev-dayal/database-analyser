@@ -7,6 +7,7 @@ from app.routes.questions import router as questions_router
 from app.routes.execute_question import router as execute_question_router
 from app.routes.profile import router as profile_router
 from app.routes.dashboard import router as dashboard_router
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(
     title="AI Data Analyzer API",
