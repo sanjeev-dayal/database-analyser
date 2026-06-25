@@ -4,6 +4,7 @@ import uuid
 import shutil
 import pandas as pd
 from app.services.schema_service import analyze_dataframe
+from app.services.database_service import create_dataset_database
 
 router = APIRouter()
 
@@ -71,6 +72,8 @@ async def upload_dataset(file: UploadFile = File(...)):
             }
 
         schema = analyze_dataframe(df)
+        db_path = create_dataset_database(df, dataset_id)
+        
     except Exception as error:
         raise HTTPException(
             status_code=400,
@@ -83,5 +86,6 @@ async def upload_dataset(file: UploadFile = File(...)):
         "filename": file.filename,
         "file_type": suffix,
         "stored_file": str(saved_path),
-        "schema": schema
+        "schema": schema,
+        "database_file": db_path
     }
