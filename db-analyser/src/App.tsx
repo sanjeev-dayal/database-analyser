@@ -7,7 +7,7 @@ import Dashboard from "./pages/Dashboard";
 import Questions from "./pages/Questions";
 import Charts from "./pages/Charts";
 import Validation from "./pages/Validation";
-import Settings from "./pages/Settings";
+import Reports from "./pages/Reports";
 
 function App() {
   return (
@@ -21,7 +21,7 @@ function App() {
         <Route path="/questions" element={<Questions />} />
         <Route path="/charts" element={<Charts />} />
         <Route path="/validation" element={<Validation />} />
-        <Route path="/settings" element={<Settings />} />
+        <Route path="/reports" element={<Reports />} />
       </Route>
     </Routes>
   );

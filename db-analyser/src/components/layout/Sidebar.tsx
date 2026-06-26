@@ -2,8 +2,8 @@ import {
   BrainCircuit,
   ChartColumn,
   Database,
+  FileText,
   LayoutDashboard,
-  Settings,
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
@@ -38,9 +38,9 @@ const menu = [
     path: "/validation",
   },
   {
-    title: "Settings",
-    icon: Settings,
-    path: "/settings",
+    title: "Reports",
+    icon: FileText,
+    path: "/reports",
   },
 ];
 
@@ -182,45 +182,40 @@ export default function Sidebar() {
 
       {/* Bottom */}
 
-      <div className="p-6">
+      <motion.div
+        whileHover={{ scale: 1.02 }}
+        className="mt-auto rounded-3xl border border-violet-800/30 bg-[#111118] p-6 shadow-[0_0_25px_rgba(124,58,237,.15)]"
+      >
+      <h3 className="mb-5 text-lg font-bold text-white">
+        System Status
+      </h3>
 
-        <div
-          className="
-          rounded-2xl
-          border
-          border-violet-800/30
-          bg-[#13131C]
-          p-5
-          "
-        >
+      <StatusItem title="Backend" status="Online" color="bg-emerald-400" />
+      <StatusItem title="AI Engine" status="Ready" color="bg-cyan-400" />
+      <StatusItem title="Database" status="Connected" color="bg-violet-400" />
+      <StatusItem title="Processing" status="Fast" color="bg-yellow-400" />
 
-          <h3 className="font-semibold text-white">
-            Smart Analyzer
-          </h3>
-
-          <p className="text-gray-500 text-sm mt-2">
-            Version 1.0
-          </p>
-
-          <div className="mt-4 h-2 rounded-full bg-[#20202d] overflow-hidden">
-
-            <div
-              className="
-              h-full
-              w-3/4
-              rounded-full
-              bg-gradient-to-r
-              from-cyan-400
-              to-violet-500
-              "
-            />
-
-          </div>
-
-        </div>
-
-      </div>
+      
+      </motion.div>
 
     </aside>
+  );
+}
+type StatusItemProps = {
+  title: string;
+  status: string;
+  color: string;
+};
+
+function StatusItem({ title, status, color }: StatusItemProps) {
+  return (
+    <div className="mb-4 flex items-center justify-between">
+      <span className="text-gray-300">{title}</span>
+
+      <div className="flex items-center gap-2">
+        <div className={`h-2.5 w-2.5 rounded-full ${color}`} />
+        <span className="text-sm font-medium text-white">{status}</span>
+      </div>
+    </div>
   );
 }

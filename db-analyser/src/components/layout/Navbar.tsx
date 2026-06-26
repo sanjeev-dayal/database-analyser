@@ -2,7 +2,6 @@ import {
   Bell,
   Search,
   Moon,
-  Settings,
   ChevronDown,
 } from "lucide-react";
 
@@ -87,13 +86,6 @@ export default function Navbar() {
 
         </button>
 
-        {/* Settings */}
-
-        <button className="p-3 rounded-xl bg-[#171620] hover:bg-violet-900/20">
-
-          <Settings className="text-white"/>
-
-        </button>
 
         {/* Profile */}
 
