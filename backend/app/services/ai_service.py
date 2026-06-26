@@ -29,14 +29,37 @@ def repair_duckdb_sql(sql: str) -> str:
     sql = sql.replace("TIME(check_in)", "CAST(check_in AS TIME)")
     sql = sql.replace("TIME(check_out)", "CAST(check_out AS TIME)")
 
+    sql = sql.replace(
+        "EXTRACT(EPOCH FROM CAST(check_in AS TIME))",
+        "(EXTRACT(HOUR FROM CAST(check_in AS TIME)) * 3600 + EXTRACT(MINUTE FROM CAST(check_in AS TIME)) * 60 + EXTRACT(SECOND FROM CAST(check_in AS TIME)))"
+    )
+    sql = sql.replace(
+        "EXTRACT(EPOCH FROM CAST(check_out AS TIME))",
+        "(EXTRACT(HOUR FROM CAST(check_out AS TIME)) * 3600 + EXTRACT(MINUTE FROM CAST(check_out AS TIME)) * 60 + EXTRACT(SECOND FROM CAST(check_out AS TIME)))"
+    )
+
     return sql
+
+
+def question_uses_category_columns(sql: str, category_columns: list[str]) -> bool:
+    if not category_columns:
+        return True
+
+    lower_sql = sql.lower()
+
+    return any(column.lower() in lower_sql for column in category_columns)
 
 def generate_ai_questions(
     schema: dict,
     category: str,
+    category_columns: list[str],
     sample_rows: list[dict],
     fallback_questions: list[dict]
 ) -> list[dict]:
+
+    allowed_columns = category_columns or [
+        column["name"] for column in schema.get("columns", [])
+    ]
 
     prompt = f"""
 You are a data analytics assistant.
@@ -46,24 +69,28 @@ The uploaded dataset is stored in a DuckDB table named data.
 Selected category:
 {category}
 
+Category columns (use ONLY these columns in every question):
+{json.dumps(allowed_columns, indent=2)}
+
 Dataset schema:
 {json.dumps(schema, indent=2)}
 
 Sample rows:
 {json.dumps(sample_rows, indent=2, default=str)}
 
-Generate up to 10 useful analysis questions.
+Generate up to 10 useful analysis questions for the selected category only.
 
 Rules:
-1. Use only columns that exist in the schema.
-2. Use only the table named data.
-3. SQL must start with SELECT or WITH.
-4. Never use INSERT, UPDATE, DELETE, DROP, CREATE, ALTER, COPY, ATTACH, file paths, or multiple SQL statements.
-5. Every query must include LIMIT 1000 or less.
-6. Use DuckDB-compatible SQL.
-7. For time columns stored as text, use CAST(column_name AS TIME).
-8. Never use time(column_name), DATE(column_name), or TIME(column_name) functions.
-9. To calculate working hours, use this DuckDB pattern:
+1. Use only columns listed in "Category columns".
+2. Every question must be relevant to the selected category.
+3. Use only the table named data.
+4. SQL must start with SELECT or WITH.
+5. Never use INSERT, UPDATE, DELETE, DROP, CREATE, ALTER, COPY, ATTACH, file paths, or multiple SQL statements.
+6. Every query must include LIMIT 1000 or less.
+7. Use DuckDB-compatible SQL.
+8. For time columns stored as text, use CAST(column_name AS TIME).
+9. Never use time(column_name), DATE(column_name), or TIME(column_name) functions.
+10. To calculate working hours, use this DuckDB pattern:
 For time columns stored as text, use CAST(column AS TIME).
 
 DuckDB does not support subtracting TIME values directly.
@@ -83,7 +110,7 @@ To calculate duration between check_in and check_out, convert each time to secon
 )
 
 Divide by 3600.0 for hours.
-10. Return JSON only. No markdown.
+11. Return JSON only. No markdown.
 
 Return exactly:
 
@@ -122,6 +149,10 @@ Return exactly:
     for question in parsed.get("questions", []):
         try:
             repaired_sql = repair_duckdb_sql(question["sql"])
+
+            if not question_uses_category_columns(repaired_sql, allowed_columns):
+                continue
+
             safe_sql = validate_sql(repaired_sql)
 
             safe_questions.append({

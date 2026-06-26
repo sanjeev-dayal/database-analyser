@@ -90,6 +90,64 @@ def make_average_question(group_column: str, numeric_column: str) -> dict:
     }
 
 
+def scope_columns(columns: list[str], category_columns: list[str]) -> list[str]:
+    if not category_columns:
+        return columns
+
+    allowed = set(category_columns)
+    return [column for column in columns if column in allowed]
+
+
+def time_to_seconds_sql(column: str) -> str:
+    quoted = quote_column(column)
+
+    return f"""(
+        EXTRACT(HOUR FROM CAST({quoted} AS TIME)) * 3600
+        + EXTRACT(MINUTE FROM CAST({quoted} AS TIME)) * 60
+        + EXTRACT(SECOND FROM CAST({quoted} AS TIME))
+    )"""
+
+
+def build_numeric_summary_questions(numeric_columns: list[str]) -> list[dict]:
+    questions = []
+
+    for numeric_column in numeric_columns[:4]:
+        questions.append({
+            "title": f"What is the average {numeric_column}?",
+            "description": f"Calculate the average value of {numeric_column}.",
+            "sql": f"""
+                SELECT
+                    'Average' AS label,
+                    AVG({quote_column(numeric_column)}) AS value
+                FROM data
+                LIMIT 1
+            """,
+            "chart": {
+                "type": "bar",
+                "x": "label",
+                "y": "value"
+            }
+        })
+        questions.append({
+            "title": f"What is the total {numeric_column}?",
+            "description": f"Calculate the total value of {numeric_column}.",
+            "sql": f"""
+                SELECT
+                    'Total' AS label,
+                    SUM({quote_column(numeric_column)}) AS value
+                FROM data
+                LIMIT 1
+            """,
+            "chart": {
+                "type": "bar",
+                "x": "label",
+                "y": "value"
+            }
+        })
+
+    return questions
+
+
 def make_date_trend_question(date_column: str) -> dict:
     return {
         "title": f"What is the record trend over {date_column}?",
@@ -136,11 +194,7 @@ def build_attendance_questions(
                 "sql": f"""
                     SELECT
                         {quote_column(employee_column)} AS label,
-                        AVG(
-                            EXTRACT(
-                                EPOCH FROM CAST({quote_column(check_in)} AS TIME)
-                            )
-                        ) AS value
+                        AVG({time_to_seconds_sql(check_in)}) AS value
                     FROM data
                     GROUP BY {quote_column(employee_column)}
                     ORDER BY value DESC
@@ -160,21 +214,29 @@ def build_attendance_questions(
 
 
 def build_finance_questions(
-    columns: list[str],
     numeric_columns: list[str],
-    categorical_columns: list[str]
+    categorical_columns: list[str],
 ) -> list[dict]:
-    questions = []
-
     finance_columns = find_columns(
         numeric_columns,
         ["revenue", "sales", "profit", "cost", "price", "discount", "amount", "margin"]
     )
 
+    if not finance_columns:
+        finance_columns = numeric_columns[:3]
+
+    if not finance_columns:
+        return []
+
     group_columns = [
         column for column in categorical_columns
         if not any(word in normalize(column) for word in ["id", "date", "time"])
     ]
+
+    if not group_columns:
+        return build_numeric_summary_questions(finance_columns)
+
+    questions = []
 
     for numeric_column in finance_columns[:3]:
         for group_column in group_columns[:3]:
@@ -254,12 +316,94 @@ def build_generic_questions(
     return questions
 
 
-def build_questions(schema: dict[str, Any], category: str) -> list[dict]:
-    columns = [item["name"] for item in schema["columns"]]
-    numeric_columns = schema.get("numeric_columns", [])
-    categorical_columns = schema.get("categorical_columns", [])
-    date_columns = schema.get("date_columns", [])
-    time_columns = schema.get("time_columns", [])
+def build_customer_questions(
+    categorical_columns: list[str],
+    metric_columns: list[str]
+) -> list[dict]:
+    if not categorical_columns:
+        return []
+
+    questions = []
+    customer_column = categorical_columns[0]
+    questions.append(make_count_question(customer_column))
+
+    for numeric_column in metric_columns[:2]:
+        questions.append(make_sum_question(customer_column, numeric_column))
+        questions.append(make_average_question(customer_column, numeric_column))
+
+    return questions
+
+
+def build_orders_questions(
+    columns: list[str],
+    numeric_columns: list[str],
+    categorical_columns: list[str]
+) -> list[dict]:
+    questions = []
+
+    order_columns = find_columns(
+        columns + categorical_columns,
+        ["order", "invoice", "transaction", "quantity", "ship", "delivery", "status", "return"]
+    )
+
+    if order_columns:
+        order_column = order_columns[0]
+        questions.append(make_count_question(order_column))
+
+        if numeric_columns:
+            for numeric_column in numeric_columns[:2]:
+                questions.append(make_sum_question(order_column, numeric_column))
+                questions.append(make_average_question(order_column, numeric_column))
+
+    return questions
+
+
+def build_time_questions(
+    date_columns: list[str],
+    time_columns: list[str]
+) -> list[dict]:
+    questions = []
+
+    if date_columns:
+        questions.append(make_date_trend_question(date_columns[0]))
+
+    if time_columns:
+        questions.append({
+            "title": f"Which {time_columns[0]} value appears most often?",
+            "description": f"Count records grouped by {time_columns[0]}.",
+            "sql": f"""
+                SELECT
+                    {quote_column(time_columns[0])} AS label,
+                    COUNT(*) AS value
+                FROM data
+                GROUP BY {quote_column(time_columns[0])}
+                ORDER BY value DESC
+                LIMIT 10
+            """,
+            "chart": {
+                "type": "bar",
+                "x": "label",
+                "y": "value"
+            }
+        })
+
+    return questions
+
+
+def build_questions(
+    schema: dict[str, Any],
+    category: str,
+    category_columns: list[str] | None = None
+) -> list[dict]:
+    category_columns = category_columns or []
+    all_columns = [item["name"] for item in schema["columns"]]
+
+    columns = scope_columns(all_columns, category_columns)
+    numeric_columns = scope_columns(schema.get("numeric_columns", []), category_columns)
+    categorical_columns = scope_columns(schema.get("categorical_columns", []), category_columns)
+    date_columns = scope_columns(schema.get("date_columns", []), category_columns)
+    time_columns = scope_columns(schema.get("time_columns", []), category_columns)
+    metric_columns = numeric_columns or schema.get("numeric_columns", [])
 
     normalized_category = normalize(category)
 
@@ -270,31 +414,83 @@ def build_questions(schema: dict[str, Any], category: str) -> list[dict]:
             time_columns
         )
 
+    elif any(keyword in normalized_category for keyword in [
+        "employee", "hr", "staff", "department"
+    ]):
+        questions = build_attendance_questions(
+            columns,
+            date_columns,
+            time_columns
+        )
+
     elif "finance" in normalized_category or "sales" in normalized_category:
         questions = build_finance_questions(
-            columns,
             numeric_columns,
-            categorical_columns
+            categorical_columns,
         )
 
     elif "geography" in normalized_category:
         questions = build_geography_questions(
             columns,
-            numeric_columns
+            metric_columns
         )
 
-    elif "product" in normalized_category or "inventory" in normalized_category:
+    elif any(keyword in normalized_category for keyword in [
+        "product", "inventory", "item", "sku", "brand", "supplier"
+    ]):
         questions = build_product_questions(
             columns,
-            numeric_columns
+            metric_columns
         )
 
-    else:
+    elif any(keyword in normalized_category for keyword in [
+        "customer", "client", "buyer", "member", "account", "segment"
+    ]):
+        questions = build_customer_questions(
+            categorical_columns,
+            metric_columns
+        )
+
+    elif any(keyword in normalized_category for keyword in [
+        "order", "operations", "transaction", "invoice", "delivery", "return", "shipping", "status"
+    ]):
+        questions = build_orders_questions(
+            columns,
+            metric_columns,
+            categorical_columns
+        )
+
+    elif "numeric analysis" in normalized_category:
+        questions = build_numeric_summary_questions(numeric_columns)
+
+    elif "categorical analysis" in normalized_category:
         questions = build_generic_questions(
-            numeric_columns,
+            metric_columns,
             categorical_columns,
             date_columns
         )
+
+    elif any(keyword in normalized_category for keyword in [
+        "time analysis", "time", "date analysis", "date"
+    ]):
+        questions = build_time_questions(date_columns, time_columns)
+
+    else:
+        questions = build_generic_questions(
+            metric_columns,
+            categorical_columns,
+            date_columns
+        )
+
+    if not questions:
+        if numeric_columns and not categorical_columns:
+            questions = build_numeric_summary_questions(numeric_columns)
+        else:
+            questions = build_generic_questions(
+                metric_columns,
+                categorical_columns,
+                date_columns
+            )
 
     # Remove repeated titles
     unique_questions = []

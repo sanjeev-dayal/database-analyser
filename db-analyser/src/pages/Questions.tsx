@@ -103,8 +103,17 @@ export default function Questions() {
       setExpandedSql({});
       setExecutedResults({});
     } catch (error: unknown) {
-      const axiosError = error as { response?: { data?: { detail?: string } }; message: string };
-      const detail = axiosError.response?.data?.detail || axiosError.response?.data || axiosError.message;
+      const axiosError = error as {
+        response?: { data?: { detail?: string | Array<{ msg?: string }> } };
+        message: string;
+      };
+      const responseDetail = axiosError.response?.data?.detail;
+      const detail =
+        typeof responseDetail === "string"
+          ? responseDetail
+          : Array.isArray(responseDetail)
+            ? responseDetail.map((item) => item.msg).filter(Boolean).join(", ")
+            : axiosError.message;
       toast.error(`Unable to generate questions: ${detail}`);
     } finally {
       setAsking(false);
@@ -143,8 +152,17 @@ export default function Questions() {
         },
       }));
     } catch (error: unknown) {
-      const axiosError = error as { response?: { data?: { detail?: string } }; message: string };
-      const detail = axiosError.response?.data?.detail || axiosError.response?.data || axiosError.message;
+      const axiosError = error as {
+        response?: { data?: { detail?: string | Array<{ msg?: string }> } };
+        message: string;
+      };
+      const responseDetail = axiosError.response?.data?.detail;
+      const detail =
+        typeof responseDetail === "string"
+          ? responseDetail
+          : Array.isArray(responseDetail)
+            ? responseDetail.map((item) => item.msg).filter(Boolean).join(", ")
+            : axiosError.message;
 
       setExecutedResults((prev) => ({
         ...prev,

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Any
+import duckdb
 
 from app.services.sql_safety_service import validate_sql
 from app.services.database_service import run_safe_query
@@ -66,7 +67,6 @@ def execute_question(
                 )
 
         summary = create_summary(rows, request.chart)
-        summary = create_summary(rows, request.chart)
 
         return {
             "dataset_id": dataset_id,
@@ -89,6 +89,12 @@ def execute_question(
         raise HTTPException(
             status_code=400,
             detail=str(error)
+        )
+
+    except duckdb.Error as error:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Query execution failed: {str(error)}"
         )
 
     except Exception as error:

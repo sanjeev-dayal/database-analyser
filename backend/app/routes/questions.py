@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from app.services.dataset_loader_service import load_dataset_dataframe
 
 from app.services.schema_service import analyze_dataframe
+from app.services.category_service import detect_categories
 from app.services.question_service import build_questions
 from app.services.ai_service import generate_ai_questions
 
@@ -20,11 +21,18 @@ def get_questions(dataset_id: str, request: QuestionRequest):
         df = load_dataset_dataframe(dataset_id)
 
         schema = analyze_dataframe(df)
+        categories = detect_categories(schema)
+        category_match = next(
+            (item for item in categories if item["name"] == request.category),
+            None
+        )
+        category_columns = category_match["columns"] if category_match else []
         
         # Always generate rule-based questions first
         fallback_questions = build_questions(
             schema,
-            request.category
+            request.category,
+            category_columns
         )
 
         # If user chooses no AI, return rules only
@@ -45,6 +53,7 @@ def get_questions(dataset_id: str, request: QuestionRequest):
         ai_questions = generate_ai_questions(
             schema=schema,
             category=request.category,
+            category_columns=category_columns,
             sample_rows=sample_rows,
             fallback_questions=fallback_questions
         )
