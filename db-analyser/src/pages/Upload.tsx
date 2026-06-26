@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { type AxiosError } from "axios";
 import { useNavigate } from "react-router-dom";
 import { useDropzone } from "react-dropzone";
 import { motion } from "framer-motion";
@@ -11,6 +12,42 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import SupportedFormats from "@/components/upload/SupportedFormats";
 import RecentUploads from "@/components/upload/RecentUploads";
+import api from "@/services/api";
+
+type UploadHistoryItem = {
+  id: string;
+  name: string;
+  size: string;
+  time: string;
+  status: string;
+};
+
+type NotificationItem = {
+  id: string;
+  message: string;
+  time: string;
+};
+
+function saveUploadHistory(item: UploadHistoryItem) {
+  const raw = localStorage.getItem("upload_history");
+  const history: UploadHistoryItem[] = raw ? JSON.parse(raw) : [];
+  history.unshift(item);
+  localStorage.setItem("upload_history", JSON.stringify(history.slice(0, 5)));
+}
+
+function saveNotification(message: string) {
+  const raw = localStorage.getItem("notifications");
+  const notifications: NotificationItem[] = raw ? JSON.parse(raw) : [];
+  notifications.unshift({
+    id: crypto?.randomUUID?.() ?? `${Date.now()}`,
+    message,
+    time: new Date().toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    }),
+  });
+  localStorage.setItem("notifications", JSON.stringify(notifications.slice(0, 8)));
+}
 
 export default function Upload() {
   const navigate = useNavigate();
@@ -32,43 +69,81 @@ export default function Upload() {
   });
 
   async function handleUpload() {
-   if (!file) {
-     toast.error("Please select a database first.");
-     return;
-   }
+    if (!file) {
+      toast.error("Please select a database first.");
+      return;
+    }
 
-   const allowedExtensions = [
-    "csv",
-    "db",
-    "sqlite",
-    "sql",
-    "xls",
-    "xlsx",
-   ];
+    const allowedExtensions = [
+      "csv",
+      "db",
+      "sqlite",
+      "xls",
+      "xlsx",
+    ];
 
-   const extension = file.name.split(".").pop()?.toLowerCase();
+    const extension = file.name.split(".").pop()?.toLowerCase();
 
-   if (!extension || !allowedExtensions.includes(extension)) {
-     toast.error("Unsupported file type.");
-     return;
-   }
+    if (!extension || !allowedExtensions.includes(extension)) {
+      toast.error("Unsupported file type.");
+      return;
+    }
 
-   setUploading(true);
-   setProgress(0);
+    setUploading(true);
+    setProgress(0);
 
-   for (let i = 0; i <= 100; i += 5) {
-     await new Promise((resolve) => setTimeout(resolve, 80));
-     setProgress(i);
-   }
+    const formData = new FormData();
+    formData.append("file", file);
 
-   toast.success("Database uploaded successfully!");
-   setUploading(false);
-   setFile(null);
+    try {
+      const response = await api.post("/upload", formData, {
+        onUploadProgress: (progressEvent) => {
+          if (!progressEvent.total) return;
+          setProgress(
+            Math.round((progressEvent.loaded * 100) / progressEvent.total)
+          );
+        },
+      });
 
-   setTimeout(() => {
-     navigate("/dashboard");
-   }, 700);
-}
+      const datasetId = response.data?.dataset_id;
+      const filename = response.data?.filename;
+      const fileType = response.data?.file_type;
+
+      if (datasetId) {
+        localStorage.setItem("dataset_id", datasetId);
+      }
+      if (filename) {
+        localStorage.setItem("dataset_filename", filename);
+      }
+      if (fileType) {
+        localStorage.setItem("dataset_file_type", fileType);
+      }
+      const uploadedAt = new Date();
+      localStorage.setItem("dataset_uploaded_at", uploadedAt.toISOString());
+
+      saveUploadHistory({
+        id: datasetId || `${uploadedAt.getTime()}`,
+        name: filename || file.name,
+        size: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
+        time: uploadedAt.toLocaleString(),
+        status: "Completed",
+      });
+
+      saveNotification(`Dataset uploaded: ${filename || file.name}`);
+
+      toast.success("Database uploaded successfully!");
+      setFile(null);
+      setTimeout(() => {
+        navigate("/dashboard");
+      }, 700);
+    } catch (error: unknown) {
+      const axiosError = error as AxiosError<{ detail?: string }>;
+      const detail = axiosError.response?.data?.detail || axiosError.response?.data || axiosError.message;
+      toast.error(`Upload failed: ${detail}`);
+    } finally {
+      setUploading(false);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-[#09090B] text-white">

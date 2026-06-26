@@ -20,12 +20,6 @@ const formats = [
     color: "text-violet-400",
     description: ".db / .sqlite",
   },
-  {
-    name: "SQL",
-    icon: Table,
-    color: "text-orange-400",
-    description: ".sql scripts",
-  },
 ];
 
 export default function SupportedFormats() {

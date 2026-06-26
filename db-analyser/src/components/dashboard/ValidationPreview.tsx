@@ -4,7 +4,17 @@ import {
   AlertTriangle,
 } from "lucide-react";
 
-export default function ValidationPreview() {
+type ValidationPreviewProps = {
+  duplicateRows: number;
+  missingValues: number;
+};
+
+export default function ValidationPreview({
+  duplicateRows,
+  missingValues,
+}: ValidationPreviewProps) {
+  const overallScore = Math.max(0, 100 - missingValues - duplicateRows * 2);
+
   return (
     <motion.div
       whileHover={{ y: -4 }}
@@ -23,7 +33,7 @@ export default function ValidationPreview() {
           </span>
 
           <span className="font-bold text-cyan-400">
-            96%
+            {overallScore}%
           </span>
 
         </div>
@@ -32,7 +42,7 @@ export default function ValidationPreview() {
 
           <div
             className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-violet-500"
-            style={{ width: "96%" }}
+            style={{ width: `${overallScore}%` }}
           />
 
         </div>
@@ -42,15 +52,15 @@ export default function ValidationPreview() {
       <div className="space-y-5">
 
         <ValidationItem
-          success
+          success={duplicateRows === 0}
           label="Duplicate Rows"
-          value="0"
+          value={duplicateRows.toString()}
         />
 
         <ValidationItem
-          success={false}
+          success={missingValues === 0}
           label="Missing Values"
-          value="21"
+          value={missingValues.toString()}
         />
 
         <ValidationItem

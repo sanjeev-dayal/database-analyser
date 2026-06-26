@@ -1,7 +1,23 @@
 import { Database, CheckCircle2, Clock3, HardDrive } from "lucide-react";
 import { motion } from "framer-motion";
 
-export default function DatasetInfo() {
+type DatasetInfoProps = {
+  fileName: string;
+  fileType: string;
+  rows: number;
+  columns: number;
+  uploadedAt: string;
+  fileSize?: string;
+};
+
+export default function DatasetInfo({
+  fileName,
+  fileType,
+  rows,
+  columns,
+  uploadedAt,
+  fileSize = "Unknown size",
+}: DatasetInfoProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 15 }}
@@ -24,34 +40,34 @@ export default function DatasetInfo() {
             </p>
 
             <h2 className="mt-1 text-4xl font-bold">
-              sales_2025.csv
+              {fileName}
             </h2>
 
             <div className="mt-5 flex flex-wrap gap-3">
 
               <InfoBadge
                 icon={<HardDrive size={16} />}
-                text="CSV"
+                text={fileType.toUpperCase()}
               />
 
               <InfoBadge
                 icon={<Database size={16} />}
-                text="54,820 Rows"
+                text={`${rows.toLocaleString()} Rows`}
               />
 
               <InfoBadge
                 icon={<Database size={16} />}
-                text="16 Columns"
+                text={`${columns.toLocaleString()} Columns`}
               />
 
               <InfoBadge
                 icon={<Clock3 size={16} />}
-                text="Uploaded 2 mins ago"
+                text={uploadedAt}
               />
 
               <InfoBadge
                 icon={<HardDrive size={16} />}
-                text="5.8 MB"
+                text={fileSize}
               />
 
             </div>

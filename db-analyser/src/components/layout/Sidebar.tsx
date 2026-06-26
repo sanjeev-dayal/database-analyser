@@ -184,18 +184,16 @@ export default function Sidebar() {
 
       <motion.div
         whileHover={{ scale: 1.02 }}
-        className="mt-auto rounded-3xl border border-violet-800/30 bg-[#111118] p-6 shadow-[0_0_25px_rgba(124,58,237,.15)]"
+        className="mt-auto rounded-3xl border border-violet-800/30 bg-[#111118] p-3 shadow-[0_0_18px_rgba(124,58,237,.12)]"
       >
-      <h3 className="mb-5 text-lg font-bold text-white">
-        System Status
-      </h3>
+        <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.24em] text-gray-400">
+          System Status
+        </h3>
 
-      <StatusItem title="Backend" status="Online" color="bg-emerald-400" />
-      <StatusItem title="AI Engine" status="Ready" color="bg-cyan-400" />
-      <StatusItem title="Database" status="Connected" color="bg-violet-400" />
-      <StatusItem title="Processing" status="Fast" color="bg-yellow-400" />
-
-      
+        <StatusItem title="Backend" status="Online" color="bg-emerald-400" />
+        <StatusItem title="AI Engine" status="Ready" color="bg-cyan-400" />
+        <StatusItem title="Database" status="Connected" color="bg-violet-400" />
+        <StatusItem title="Processing" status="Fast" color="bg-yellow-400" />
       </motion.div>
 
     </aside>

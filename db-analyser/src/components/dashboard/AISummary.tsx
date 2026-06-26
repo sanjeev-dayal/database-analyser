@@ -2,17 +2,33 @@ import { motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 
-const lines = [
-  "Dataset uploaded successfully.",
-  "54,820 rows detected.",
-  "16 columns identified.",
-  "Missing values found in 2 columns.",
-  "Revenue trend detected.",
-  "AI confidence score: 96%.",
-];
+type AISummaryProps = {
+  datasetName: string;
+  rowCount: number;
+  columnCount: number;
+  duplicateRows: number;
+  missingValues: number;
+  categoryCount: number;
+};
 
-export default function AISummary() {
+export default function AISummary({
+  datasetName,
+  rowCount,
+  columnCount,
+  duplicateRows,
+  missingValues,
+  categoryCount,
+}: AISummaryProps) {
   const [visible, setVisible] = useState(0);
+
+  const lines = [
+    `Dataset ${datasetName} analyzed successfully.`,
+    `${rowCount.toLocaleString()} rows detected.`,
+    `${columnCount.toLocaleString()} columns identified.`,
+    `${duplicateRows.toLocaleString()} duplicate rows found.`,
+    `${missingValues.toLocaleString()} missing values detected.`,
+    `${categoryCount} analysis categories generated.`,
+  ];
 
   useEffect(() => {
     if (visible < lines.length) {
@@ -22,7 +38,7 @@ export default function AISummary() {
 
       return () => clearTimeout(timer);
     }
-  }, [visible]);
+  }, [visible, lines.length]);
 
   return (
     <motion.div

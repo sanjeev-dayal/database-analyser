@@ -5,16 +5,19 @@ import { Toaster } from "sonner";
 
 import "./index.css";
 import App from "./App";
+import { ThemeProvider } from "@/components/theme-provider";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <BrowserRouter>
-      <App />
-      <Toaster
-        position="top-right"
-        richColors
-        expand
-      />
-    </BrowserRouter>
+    <ThemeProvider>
+      <BrowserRouter>
+        <App />
+        <Toaster
+          position="top-right"
+          richColors
+          expand
+        />
+      </BrowserRouter>
+    </ThemeProvider>
   </StrictMode>
 );
