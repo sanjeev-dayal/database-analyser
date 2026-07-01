@@ -26,7 +26,14 @@ def get_questions(dataset_id: str, request: QuestionRequest):
             (item for item in categories if item["name"] == request.category),
             None
         )
-        category_columns = category_match["columns"] if category_match else []
+
+        if not category_match:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Category '{request.category}' was not found for this dataset."
+            )
+
+        category_columns = category_match["columns"]
         
         # Always generate rule-based questions first
         fallback_questions = build_questions(
@@ -50,13 +57,18 @@ def get_questions(dataset_id: str, request: QuestionRequest):
             orient="records"
         )
 
-        ai_questions = generate_ai_questions(
-            schema=schema,
-            category=request.category,
-            category_columns=category_columns,
-            sample_rows=sample_rows,
-            fallback_questions=fallback_questions
-        )
+        ai_questions: list[dict] = []
+
+        try:
+            ai_questions = generate_ai_questions(
+                schema=schema,
+                category=request.category,
+                category_columns=category_columns,
+                sample_rows=sample_rows,
+                fallback_questions=fallback_questions
+            )
+        except Exception:
+            ai_questions = []
 
         # If AI fails or returns no valid questions, use fallback
         if not ai_questions:

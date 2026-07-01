@@ -44,7 +44,7 @@ export default function RecentQuestions({ categories }: RecentQuestionsProps) {
       try {
         const response = await api.post(`/datasets/${datasetId}/questions`, {
           category,
-          use_ai: false,
+          use_ai: true,
         });
         setQuestions(response.data.questions || []);
       } catch {

@@ -1,7 +1,37 @@
 import duckdb
 from pathlib import Path
+import math
+from datetime import date, datetime, time
 import pandas as pd
 from app.services.dataset_loader_service import get_dataset_database_path
+
+
+def serialize_value(value):
+    if value is None:
+        return None
+
+    if isinstance(value, (str, int, bool)):
+        return value
+
+    if isinstance(value, float):
+        if math.isnan(value) or math.isinf(value):
+            return None
+        return value
+
+    if isinstance(value, (datetime, date, time)):
+        return value.isoformat()
+
+    if hasattr(value, "item"):
+        return serialize_value(value.item())
+
+    return str(value)
+
+
+def serialize_rows(records: list[dict]) -> list[dict]:
+    return [
+        {key: serialize_value(value) for key, value in row.items()}
+        for row in records
+    ]
 
 def create_dataset_database(df: pd.DataFrame, dataset_id: str) -> str:
     """
@@ -54,7 +84,7 @@ def run_safe_query(dataset_id: str, query: str) -> list[dict]:
 
         result_df = connection.execute(query).fetchdf()
 
-        return result_df.to_dict(orient="records")
+        return serialize_rows(result_df.to_dict(orient="records"))
 
     finally:
         if connection is not None:

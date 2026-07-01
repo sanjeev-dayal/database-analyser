@@ -68,7 +68,12 @@ export default function Questions() {
       try {
         const response = await api.get<CategoriesResponse>(`/datasets/${datasetId}/categories`);
         setCategories(response.data);
-        setActiveCategory(response.data.categories[0]?.name || "");
+        const firstCategory = response.data.categories[0]?.name || "";
+        setActiveCategory(firstCategory);
+
+        if (firstCategory) {
+          requestQuestions(firstCategory);
+        }
       } catch (error: unknown) {
         const axiosError = error as { response?: { data?: { detail?: string } }; message: string };
         const detail = axiosError.response?.data?.detail || axiosError.response?.data || axiosError.message;
@@ -96,9 +101,13 @@ export default function Questions() {
     try {
       const response = await api.post<QuestionsResponse>(`/datasets/${datasetId}/questions`, {
         category,
-        use_ai: false,
+        use_ai: true,
       });
       setQuestions(response.data.questions);
+
+      if (!response.data.questions.length) {
+        toast.error("No questions could be generated for this category. Try another category.");
+      }
       setActiveCategory(category);
       setExpandedSql({});
       setExecutedResults({});
@@ -281,7 +290,16 @@ export default function Questions() {
             <div className="rounded-3xl border border-violet-800/30 bg-[#111118] p-8">
               <h2 className="text-2xl font-bold text-white">Questions</h2>
 
-              {questions.length === 0 ? (
+              {asking && questions.length === 0 ? (
+                <div className="mt-6 space-y-4">
+                  {Array.from({ length: 4 }).map((_, index) => (
+                    <div
+                      key={index}
+                      className="h-28 animate-pulse rounded-3xl border border-violet-800/20 bg-[#0E0D14]"
+                    />
+                  ))}
+                </div>
+              ) : questions.length === 0 ? (
                 <p className="mt-4 text-gray-400">No questions generated yet. Select a category and press the button above.</p>
               ) : (
                 <div className="mt-6 space-y-4">

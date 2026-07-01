@@ -8,15 +8,25 @@ from app.services.sql_safety_service import validate_sql
 
 load_dotenv()
 
-api_key = os.getenv("OPENROUTER_API_KEY")
+_client: OpenAI | None = None
 
-if not api_key:
-    raise ValueError("OPENROUTER_API_KEY was not found in .env")
 
-client = OpenAI(
-    base_url="https://openrouter.ai/api/v1",
-    api_key=api_key
-)
+def get_openrouter_client() -> OpenAI:
+    global _client
+
+    if _client is None:
+        api_key = os.getenv("OPENROUTER_API_KEY")
+
+        if not api_key:
+            raise ValueError("OPENROUTER_API_KEY was not found in .env")
+
+        _client = OpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=api_key
+        )
+
+    return _client
+
 
 def repair_duckdb_sql(sql: str) -> str:
     """
@@ -49,6 +59,7 @@ def question_uses_category_columns(sql: str, category_columns: list[str]) -> boo
 
     return any(column.lower() in lower_sql for column in category_columns)
 
+
 def generate_ai_questions(
     schema: dict,
     category: str,
@@ -56,7 +67,6 @@ def generate_ai_questions(
     sample_rows: list[dict],
     fallback_questions: list[dict]
 ) -> list[dict]:
-
     allowed_columns = category_columns or [
         column["name"] for column in schema.get("columns", [])
     ]
@@ -130,19 +140,28 @@ Return exactly:
 }}
 """
 
-    response = client.chat.completions.create(
-        model="openrouter/free",
-        messages=[
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
-        response_format={"type": "json_object"}
-    )
+    try:
+        client = get_openrouter_client()
 
-    raw_text = response.choices[0].message.content
-    parsed = json.loads(raw_text)
+        response = client.chat.completions.create(
+            model="openrouter/free",
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            response_format={"type": "json_object"}
+        )
+
+        raw_text = response.choices[0].message.content
+
+        if not raw_text:
+            return []
+
+        parsed = json.loads(raw_text)
+    except Exception:
+        return []
 
     safe_questions = []
 

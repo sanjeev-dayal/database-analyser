@@ -169,46 +169,119 @@ def make_date_trend_question(date_column: str) -> dict:
     }
 
 
+def find_time_pair(time_columns: list[str]) -> tuple[str, str] | None:
+    check_in = find_columns(
+        time_columns,
+        ["check in", "checkin", "clock in", "clockin", "login", "start"]
+    )
+    check_out = find_columns(
+        time_columns,
+        ["check out", "checkout", "clock out", "clockout", "logout", "end"]
+    )
+
+    if check_in and check_out:
+        return check_in[0], check_out[0]
+
+    if len(time_columns) >= 2:
+        return time_columns[0], time_columns[1]
+
+    return None
+
+
 def build_attendance_questions(
-    columns: list[str],
     date_columns: list[str],
     time_columns: list[str]
 ) -> list[dict]:
     questions = []
 
-    employee_columns = find_columns(
-        columns,
-        ["employee", "staff", "worker", "person", "name"]
-    )
+    time_pair = find_time_pair(time_columns)
 
-    if employee_columns:
-        employee_column = employee_columns[0]
-        questions.append(make_count_question(employee_column))
+    if time_pair:
+        check_in, check_out = time_pair
 
-        if time_columns:
-            check_in = time_columns[0]
+        questions.append({
+            "title": f"What is the average daily working hours?",
+            "description": f"Calculate average hours between {check_in} and {check_out}.",
+            "sql": f"""
+                SELECT
+                    'Average Hours' AS label,
+                    AVG(
+                        ({time_to_seconds_sql(check_out)} - {time_to_seconds_sql(check_in)}) / 3600.0
+                    ) AS value
+                FROM data
+                WHERE {quote_column(check_in)} IS NOT NULL
+                  AND {quote_column(check_out)} IS NOT NULL
+                LIMIT 1
+            """,
+            "chart": {
+                "type": "bar",
+                "x": "label",
+                "y": "value"
+            }
+        })
 
-            questions.append({
-                "title": f"Which {employee_column} has the latest average {check_in}?",
-                "description": f"Compare average {check_in} time by {employee_column}.",
-                "sql": f"""
-                    SELECT
-                        {quote_column(employee_column)} AS label,
-                        AVG({time_to_seconds_sql(check_in)}) AS value
-                    FROM data
-                    GROUP BY {quote_column(employee_column)}
-                    ORDER BY value DESC
-                    LIMIT 10
-                """,
-                "chart": {
-                    "type": "bar",
-                    "x": "label",
-                    "y": "value"
-                }
-            })
+        questions.append({
+            "title": f"What is the average {check_in} time?",
+            "description": f"Calculate the average {check_in} across all records.",
+            "sql": f"""
+                SELECT
+                    'Average {check_in}' AS label,
+                    AVG({time_to_seconds_sql(check_in)}) AS value
+                FROM data
+                WHERE {quote_column(check_in)} IS NOT NULL
+                LIMIT 1
+            """,
+            "chart": {
+                "type": "bar",
+                "x": "label",
+                "y": "value"
+            }
+        })
+
+    elif time_columns:
+        questions.append({
+            "title": f"Which {time_columns[0]} value appears most often?",
+            "description": f"Count records grouped by {time_columns[0]}.",
+            "sql": f"""
+                SELECT
+                    CAST({quote_column(time_columns[0])} AS VARCHAR) AS label,
+                    COUNT(*) AS value
+                FROM data
+                GROUP BY {quote_column(time_columns[0])}
+                ORDER BY value DESC
+                LIMIT 10
+            """,
+            "chart": {
+                "type": "bar",
+                "x": "label",
+                "y": "value"
+            }
+        })
 
     if date_columns:
         questions.append(make_date_trend_question(date_columns[0]))
+
+    return questions
+
+
+def build_employee_questions(
+    columns: list[str],
+    categorical_columns: list[str],
+    numeric_columns: list[str]
+) -> list[dict]:
+    questions = []
+
+    employee_columns = find_columns(
+        columns + categorical_columns,
+        ["employee", "staff", "worker", "person", "name", "department"]
+    )
+
+    for employee_column in employee_columns[:3]:
+        questions.append(make_count_question(employee_column))
+
+        for numeric_column in numeric_columns[:2]:
+            questions.append(make_sum_question(employee_column, numeric_column))
+            questions.append(make_average_question(employee_column, numeric_column))
 
     return questions
 
@@ -290,6 +363,37 @@ def build_product_questions(
     return questions
 
 
+def build_category_scoped_fallback(
+    numeric_columns: list[str],
+    categorical_columns: list[str],
+    date_columns: list[str],
+    time_columns: list[str]
+) -> list[dict]:
+    if time_columns and not categorical_columns and not numeric_columns:
+        return build_attendance_questions(date_columns, time_columns)
+
+    if date_columns and not categorical_columns and not numeric_columns and not time_columns:
+        return build_time_questions(date_columns, time_columns)
+
+    questions = []
+
+    if numeric_columns and not categorical_columns and not date_columns and not time_columns:
+        return build_numeric_summary_questions(numeric_columns)
+
+    for group_column in categorical_columns[:4]:
+        questions.append(make_count_question(group_column))
+
+    for numeric_column in numeric_columns[:3]:
+        for group_column in categorical_columns[:3]:
+            questions.append(make_sum_question(group_column, numeric_column))
+            questions.append(make_average_question(group_column, numeric_column))
+
+    if date_columns:
+        questions.append(make_date_trend_question(date_columns[0]))
+
+    return questions
+
+
 def build_generic_questions(
     numeric_columns: list[str],
     categorical_columns: list[str],
@@ -318,7 +422,7 @@ def build_generic_questions(
 
 def build_customer_questions(
     categorical_columns: list[str],
-    metric_columns: list[str]
+    numeric_columns: list[str]
 ) -> list[dict]:
     if not categorical_columns:
         return []
@@ -327,7 +431,7 @@ def build_customer_questions(
     customer_column = categorical_columns[0]
     questions.append(make_count_question(customer_column))
 
-    for numeric_column in metric_columns[:2]:
+    for numeric_column in numeric_columns[:2]:
         questions.append(make_sum_question(customer_column, numeric_column))
         questions.append(make_average_question(customer_column, numeric_column))
 
@@ -403,13 +507,11 @@ def build_questions(
     categorical_columns = scope_columns(schema.get("categorical_columns", []), category_columns)
     date_columns = scope_columns(schema.get("date_columns", []), category_columns)
     time_columns = scope_columns(schema.get("time_columns", []), category_columns)
-    metric_columns = numeric_columns or schema.get("numeric_columns", [])
 
     normalized_category = normalize(category)
 
     if "attendance" in normalized_category or "time tracking" in normalized_category:
         questions = build_attendance_questions(
-            columns,
             date_columns,
             time_columns
         )
@@ -417,10 +519,10 @@ def build_questions(
     elif any(keyword in normalized_category for keyword in [
         "employee", "hr", "staff", "department"
     ]):
-        questions = build_attendance_questions(
+        questions = build_employee_questions(
             columns,
-            date_columns,
-            time_columns
+            categorical_columns,
+            numeric_columns
         )
 
     elif "finance" in normalized_category or "sales" in normalized_category:
@@ -432,7 +534,7 @@ def build_questions(
     elif "geography" in normalized_category:
         questions = build_geography_questions(
             columns,
-            metric_columns
+            numeric_columns
         )
 
     elif any(keyword in normalized_category for keyword in [
@@ -440,7 +542,7 @@ def build_questions(
     ]):
         questions = build_product_questions(
             columns,
-            metric_columns
+            numeric_columns
         )
 
     elif any(keyword in normalized_category for keyword in [
@@ -448,7 +550,7 @@ def build_questions(
     ]):
         questions = build_customer_questions(
             categorical_columns,
-            metric_columns
+            numeric_columns
         )
 
     elif any(keyword in normalized_category for keyword in [
@@ -456,7 +558,7 @@ def build_questions(
     ]):
         questions = build_orders_questions(
             columns,
-            metric_columns,
+            numeric_columns,
             categorical_columns
         )
 
@@ -464,33 +566,34 @@ def build_questions(
         questions = build_numeric_summary_questions(numeric_columns)
 
     elif "categorical analysis" in normalized_category:
-        questions = build_generic_questions(
-            metric_columns,
+        questions = build_category_scoped_fallback(
+            numeric_columns,
             categorical_columns,
-            date_columns
+            date_columns,
+            time_columns
         )
 
-    elif any(keyword in normalized_category for keyword in [
-        "time analysis", "time", "date analysis", "date"
-    ]):
+    elif "date analysis" in normalized_category:
+        questions = build_time_questions(date_columns, time_columns)
+
+    elif "time analysis" in normalized_category:
         questions = build_time_questions(date_columns, time_columns)
 
     else:
-        questions = build_generic_questions(
-            metric_columns,
+        questions = build_category_scoped_fallback(
+            numeric_columns,
             categorical_columns,
-            date_columns
+            date_columns,
+            time_columns
         )
 
     if not questions:
-        if numeric_columns and not categorical_columns:
-            questions = build_numeric_summary_questions(numeric_columns)
-        else:
-            questions = build_generic_questions(
-                metric_columns,
-                categorical_columns,
-                date_columns
-            )
+        questions = build_category_scoped_fallback(
+            numeric_columns,
+            categorical_columns,
+            date_columns,
+            time_columns
+        )
 
     # Remove repeated titles
     unique_questions = []
