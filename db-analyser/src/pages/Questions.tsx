@@ -42,7 +42,43 @@ type ExecutedResult = {
   };
 };
 
+type SessionQuestionItem = {
+  title: string;
+  description: string;
+  sql: string;
+  summary: string;
+  rows: Array<Record<string, unknown>>;
+  chart: ChartConfig;
+};
+
 const COLORS = ["#22D3EE", "#7C3AED", "#A855F7", "#F472B6", "#FBBF24"];
+
+const SESSION_STORAGE_KEY = (datasetId: string) => `report_session_results_${datasetId}`;
+
+function saveSessionQuestionResult(
+  datasetId: string,
+  question: QuestionItem,
+  data: NonNullable<ExecutedResult["data"]>
+) {
+  try {
+    const raw = localStorage.getItem(SESSION_STORAGE_KEY(datasetId));
+    const sessionItems: SessionQuestionItem[] = raw ? JSON.parse(raw) : [];
+    const updatedItems = sessionItems.filter((item) => item.title !== question.title);
+
+    updatedItems.push({
+      title: question.title,
+      description: question.description,
+      sql: question.sql,
+      summary: data.summary,
+      rows: data.rows,
+      chart: data.chart,
+    });
+
+    localStorage.setItem(SESSION_STORAGE_KEY(datasetId), JSON.stringify(updatedItems));
+  } catch {
+    // ignore session persistence failures
+  }
+}
 
 export default function Questions() {
   const navigate = useNavigate();
@@ -160,6 +196,8 @@ export default function Questions() {
           data: response.data,
         },
       }));
+
+      saveSessionQuestionResult(datasetId, question, response.data);
     } catch (error: unknown) {
       const axiosError = error as {
         response?: { data?: { detail?: string | Array<{ msg?: string }> } };
@@ -320,7 +358,7 @@ export default function Questions() {
                             <p className="mt-3 text-gray-300">{question.description}</p>
                           </div>
 
-                          <div className="flex flex-wrap gap-3">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
                             <button
                               type="button"
                               onClick={() =>
@@ -329,7 +367,7 @@ export default function Questions() {
                                   [index]: !prev[index],
                                 }))
                               }
-                              className="rounded-2xl border border-violet-800/40 bg-[#111118] px-4 py-2 text-sm font-semibold text-cyan-300 transition hover:border-cyan-400/60 hover:bg-[#171620]"
+                              className="w-full sm:w-[160px] rounded-2xl border border-violet-800/40 bg-[#111118] px-4 py-2 text-sm font-semibold text-cyan-300 transition hover:border-cyan-400/60 hover:bg-[#171620]"
                             >
                               {isSqlVisible ? "Hide SQL" : "View SQL"}
                             </button>
@@ -338,7 +376,7 @@ export default function Questions() {
                               type="button"
                               onClick={() => runQuestion(index, question)}
                               disabled={result?.loading}
-                              className="rounded-2xl border border-cyan-400 bg-cyan-500/10 px-4 py-2 text-sm font-semibold text-cyan-200 transition hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                              className="w-full sm:w-[160px] rounded-2xl border border-cyan-400 bg-cyan-500/10 px-4 py-2 text-sm font-semibold text-cyan-200 transition hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               {result?.loading ? "Running..." : "Run Question"}
                             </button>
@@ -352,7 +390,7 @@ export default function Questions() {
                                     [index]: !prev[index],
                                   }))
                                 }
-                                className="rounded-2xl border border-violet-800/40 bg-[#111118] px-4 py-2 text-sm font-semibold text-cyan-300 transition hover:border-cyan-400/60 hover:bg-[#171620]"
+                                className="w-full sm:w-[160px] rounded-2xl border border-violet-800/40 bg-[#111118] px-4 py-2 text-sm font-semibold text-cyan-300 transition hover:border-cyan-400/60 hover:bg-[#171620]"
                               >
                                 {expandedChart[index] ? "Hide Chart" : "View Chart"}
                               </button>

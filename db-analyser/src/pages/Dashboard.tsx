@@ -4,9 +4,7 @@ import { toast } from "sonner";
 
 import DatasetInfo from "@/components/dashboard/DatasetInfo";
 import KPICard from "@/components/dashboard/KPICard";
-import AISummary from "@/components/dashboard/AISummary";
 import ChartPreview from "@/components/dashboard/ChartPreview";
-import RecentQuestions from "@/components/dashboard/RecentQuestions";
 import ValidationPreview from "@/components/dashboard/ValidationPreview";
 import api from "@/services/api";
 
@@ -148,21 +146,6 @@ export default function Dashboard() {
             0
           )}
         />
-
-      </div>
-
-      <div className="grid gap-6 xl:grid-cols-2">
-
-        <AISummary
-          datasetName={localStorage.getItem("dataset_filename") || dashboardData.dataset_id}
-          rowCount={dashboardData.profile.overview.row_count}
-          columnCount={dashboardData.profile.overview.column_count}
-          duplicateRows={dashboardData.profile.overview.duplicate_rows}
-          missingValues={dashboardData.profile.overview.total_missing_values}
-          categoryCount={dashboardData.categories.length}
-        />
-
-        <RecentQuestions categories={dashboardData.categories} />
 
       </div>
 
