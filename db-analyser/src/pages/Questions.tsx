@@ -90,6 +90,7 @@ export default function Questions() {
   const [expandedSql, setExpandedSql] = useState<Record<number, boolean>>({});
   const [expandedChart, setExpandedChart] = useState<Record<number, boolean>>({});
   const [executedResults, setExecutedResults] = useState<Record<number, ExecutedResult>>({});
+  const [selectedQuestionCount, setSelectedQuestionCount] = useState<number>(4);
 
   useEffect(() => {
     const datasetId = localStorage.getItem("dataset_id");
@@ -106,10 +107,6 @@ export default function Questions() {
         setCategories(response.data);
         const firstCategory = response.data.categories[0]?.name || "";
         setActiveCategory(firstCategory);
-
-        if (firstCategory) {
-          requestQuestions(firstCategory);
-        }
       } catch (error: unknown) {
         const axiosError = error as { response?: { data?: { detail?: string } }; message: string };
         const detail = axiosError.response?.data?.detail || axiosError.response?.data || axiosError.message;
@@ -123,7 +120,7 @@ export default function Questions() {
     loadCategories();
   }, [navigate]);
 
-  async function requestQuestions(category: string) {
+  async function requestQuestions(category: string, questionCount: number = selectedQuestionCount) {
     const datasetId = localStorage.getItem("dataset_id");
 
     if (!datasetId) {
@@ -138,6 +135,7 @@ export default function Questions() {
       const response = await api.post<QuestionsResponse>(`/datasets/${datasetId}/questions`, {
         category,
         use_ai: true,
+        question_count: questionCount,
       });
       setQuestions(response.data.questions);
 
@@ -290,7 +288,7 @@ export default function Questions() {
               {categories?.categories.map((category) => (
                 <button
                   key={category.name}
-                  onClick={() => requestQuestions(category.name)}
+                  onClick={() => setActiveCategory(category.name)}
                   disabled={asking}
                   className={`w-full rounded-2xl border px-4 py-4 text-left transition ${
                     category.name === activeCategory
@@ -315,13 +313,30 @@ export default function Questions() {
                   <h2 className="text-2xl font-bold text-white">Selected Category</h2>
                   <p className="mt-2 text-gray-400">{activeCategory || "Choose a category to load questions"}</p>
                 </div>
-                <button
-                  onClick={() => requestQuestions(activeCategory)}
-                  disabled={!activeCategory || asking}
-                  className="inline-flex items-center justify-center rounded-2xl bg-linear-to-r from-cyan-500 to-violet-600 px-6 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {asking ? "Generating..." : "Generate Questions"}
-                </button>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <div className="flex gap-2">
+                    {[2, 4, 8].map((count) => (
+                      <button
+                        key={count}
+                        onClick={() => setSelectedQuestionCount(count)}
+                        className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                          selectedQuestionCount === count
+                            ? "border border-cyan-400 bg-cyan-500/20 text-cyan-300"
+                            : "border border-violet-800/40 bg-[#0E0D14] text-gray-300 hover:border-cyan-400/60"
+                        }`}
+                      >
+                        {count}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => requestQuestions(activeCategory, selectedQuestionCount)}
+                    disabled={!activeCategory || asking}
+                    className="inline-flex items-center justify-center rounded-2xl bg-linear-to-r from-cyan-500 to-violet-600 px-6 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {asking ? "Generating..." : "Generate Questions"}
+                  </button>
+                </div>
               </div>
             </div>
 

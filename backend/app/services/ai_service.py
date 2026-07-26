@@ -65,7 +65,8 @@ def generate_ai_questions(
     category: str,
     category_columns: list[str],
     sample_rows: list[dict],
-    fallback_questions: list[dict]
+    fallback_questions: list[dict],
+    question_count: int = 4
 ) -> list[dict]:
     allowed_columns = category_columns or [
         column["name"] for column in schema.get("columns", [])
@@ -88,7 +89,7 @@ Dataset schema:
 Sample rows:
 {json.dumps(sample_rows, indent=2, default=str)}
 
-Generate up to 10 useful analysis questions for the selected category only.
+Generate exactly {question_count} useful analysis questions for the selected category only.
 
 Rules:
 1. Use only columns listed in "Category columns".
@@ -191,4 +192,4 @@ Return exactly:
         except (ValueError, KeyError, TypeError):
             continue
 
-    return safe_questions[:10]
+    return safe_questions[:question_count]

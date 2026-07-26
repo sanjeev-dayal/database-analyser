@@ -13,6 +13,7 @@ router = APIRouter()
 class QuestionRequest(BaseModel):
     category: str
     use_ai: bool = True
+    question_count: int = 4
 
 
 @router.post("/api/datasets/{dataset_id}/questions")
@@ -39,7 +40,8 @@ def get_questions(dataset_id: str, request: QuestionRequest):
         fallback_questions = build_questions(
             schema,
             request.category,
-            category_columns
+            category_columns,
+            request.question_count
         )
 
         # If user chooses no AI, return rules only
@@ -65,7 +67,8 @@ def get_questions(dataset_id: str, request: QuestionRequest):
                 category=request.category,
                 category_columns=category_columns,
                 sample_rows=sample_rows,
-                fallback_questions=fallback_questions
+                fallback_questions=fallback_questions,
+                question_count=request.question_count
             )
         except Exception:
             ai_questions = []

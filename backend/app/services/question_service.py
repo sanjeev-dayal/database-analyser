@@ -497,7 +497,8 @@ def build_time_questions(
 def build_questions(
     schema: dict[str, Any],
     category: str,
-    category_columns: list[str] | None = None
+    category_columns: list[str] | None = None,
+    limit: int = 4
 ) -> list[dict]:
     category_columns = category_columns or []
     all_columns = [item["name"] for item in schema["columns"]]
@@ -604,4 +605,4 @@ def build_questions(
             unique_questions.append(question)
             seen_titles.add(question["title"])
 
-    return unique_questions[:10]
+    return unique_questions[:limit]
